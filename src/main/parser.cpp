@@ -1,5 +1,5 @@
-#include "metadata.h"
 #include "parser.h"
+#include "metadata.h"
 #include "util.h"
 
 #include <iostream>
@@ -7,15 +7,12 @@
 using namespace hsql;
 
 namespace mydb {
-    Parser::Parser() {
-        result_ = nullptr;
-    }
+
+    Parser::Parser() { result_ = nullptr; }
 
     Parser::~Parser() {
-        if (result_) {
-            delete result_;
-            result_ = nullptr;
-        }
+        delete result_;
+        result_ = nullptr;
     }
 
     bool Parser::parseStatement(std::string query) {
@@ -25,11 +22,12 @@ namespace mydb {
         if (result_->isValid()) {
             return checkStmtsMeta();
         }
+
         return true;
     }
 
     bool Parser::checkStmtsMeta() {
-        for (auto i = 0; i < result_->size(); ++i) {
+        for (size_t i = 0; i < result_->size(); ++i) {
             const SQLStatement* stmt = result_->getStatement(i);
             if (checkMeta(stmt)) {
                 return true;
@@ -64,30 +62,217 @@ namespace mydb {
         return true;
     }
 
-    bool Parser::checkSelectStmt(const SelectStatement* select_stmt) {
-        TableRef* table = select_stmt->fromTable;
-        if (checkTable(table)) {
+    bool Parser::checkSelectStmt(const SelectStatement* stmt) {
+        TableRef* table_ref = stmt->fromTable;
+        Table* table = getTable(table_ref);
+        if (table == nullptr) {
+            std::cout << "# ERROR: Can not find table "
+                      << TableNameToString(table_ref->schema, table_ref->name)
+                      << std::endl;
+            return true;
+        }
+
+        if (stmt->groupBy != nullptr) {
+            std::cout << "# ERROR: Do not support 'Group By' clause" << std::endl;
+            return true;
+        }
+
+        if (stmt->setOperations != nullptr) {
+            std::cout << "# ERROR: Do not support Set Operation like 'UNION', "
+                         "'Intersect', ect."
+                      << std::endl;
+            return true;
+        }
+
+        if (stmt->withDescriptions != nullptr) {
+            std::cout << "# ERROR: Do not support 'with' clause." << std::endl;
+            return true;
+        }
+
+        if (stmt->lockings != nullptr) {
+            std::cout << "# ERROR: Do not support 'lock' clause." << std::endl;
+            return true;
+        }
+
+        if (stmt->selectList != nullptr) {
+            for (auto expr : *stmt->selectList) {
+                if (checkExpr(table, expr)) {
+                    return true;
+                }
+            }
+        }
+
+        if (stmt->whereClause != nullptr) {
+            if (checkExpr(table, stmt->whereClause)) {
+                return true;
+            }
+        }
+
+        if (stmt->order != nullptr) {
+            for (auto order : *stmt->order) {
+                if (checkExpr(table, order->expr)) {
+                    return true;
+                }
+            }
+        }
+
+        if (stmt->limit != nullptr) {
+            if (checkExpr(table, stmt->limit->limit)) {
+                return true;
+            }
+            if (checkExpr(table, stmt->limit->offset)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool Parser::checkInsertStmt(const InsertStatement* stmt) {
+        if (stmt->type == kInsertSelect) {
+            std::cout << "# ERROR: Do not support 'INSERT INTO ... SELECT ...'."
+                      << std::endl;
+        }
+
+        Table* table = g_meta_data.getTable(stmt->schema, stmt->tableName);
+        if (table == nullptr) {
+            std::cout << "# ERROR: Can not find table "
+                      << TableNameToString(stmt->schema, stmt->tableName) << std::endl;
+            return true;
+        }
+
+        if (stmt->columns != nullptr) {
+            for (auto col_name : *stmt->columns) {
+                if (checkColumn(table, col_name)) {
+                    return true;
+                }
+            }
+        }
+
+        if (stmt->values != nullptr) {
+            for (auto value : *stmt->values) {
+                if (checkExpr(table, value)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    bool Parser::checkUpdateStmt(const UpdateStatement* stmt) {
+        TableRef* table_ref = stmt->table;
+        Table* table = getTable(table_ref);
+        if (table == nullptr) {
+            std::cout << "# ERROR: Can not find table "
+                      << TableNameToString(table_ref->schema, table_ref->name)
+                      << std::endl;
+            return true;
+        }
+
+        if (stmt->updates != nullptr) {
+            for (auto update : *stmt->updates) {
+                if (checkColumn(table, update->column)) {
+                    return true;
+                }
+                if (checkExpr(table, update->value)) {
+                    return true;
+                }
+            }
+        }
+
+        if (checkExpr(table, stmt->where)) {
             return true;
         }
 
         return false;
     }
 
-    bool Parser::checkInsertStmt(const InsertStatement* insert_stmt) { return false; }
+    bool Parser::checkDeleteStmt(const DeleteStatement* stmt) {
+        Table* table = g_meta_data.getTable(stmt->schema, stmt->tableName);
+        if (table == nullptr) {
+            std::cout << "# ERROR: Can not find table "
+                      << TableNameToString(table->name)
+                      << std::endl;
+            return true;
+        }
 
-    bool Parser::checkUpdateStmt(const UpdateStatement* update_stmt) { return false; }
+        if (checkExpr(table, stmt->expr)) {
+            return true;
+        }
 
-    bool Parser::checkDeleteStmt(const DeleteStatement* delete_stmt) { return false; }
+        return false;
+    }
 
-    bool Parser::checkCreateStmt(const CreateStatement* create_stmt) {
-        switch (create_stmt->type) {
+    Table* Parser::getTable(TableRef* table_ref) {
+        if (table_ref->type != kTableName) {
+            std::cout << "# ERROR: Only support ordinary table." << std::endl;
+            return nullptr;
+        }
+
+        Table* table = g_meta_data.getTable(table_ref->schema, table_ref->name);
+        if (table == nullptr) {
+            std::cout << "# ERROR: Table "
+                      << TableNameToString(table_ref->schema, table_ref->name)
+                      << " did not exist!" << std::endl;
+            return nullptr;
+        }
+
+        return table;
+    }
+
+    bool Parser::checkColumn(Table* table, char* col_name) {
+        for (auto col_def : table->columns) {
+            if (strcmp(col_name, col_def->name) == 0) {
+                return false;
+            }
+        }
+
+        std::cout << "# ERROR: Can not find column " << col_name << " in table "
+                  << TableNameToString(table->name) << std::endl;
+        return true;
+    }
+
+    bool Parser::checkExpr(Table* table, Expr* expr) {
+        switch (expr->type) {
+            case kExprLiteralFloat:
+            case kExprLiteralString:
+            case kExprLiteralInt:
+                return false;
+            case kExprSelect:
+                return checkExpr(table, expr->expr);
+            case kExprOperator: {
+                if (expr->expr != nullptr && checkExpr(table, expr->expr)) {
+                    return true;
+                }
+                if (expr->expr2 != nullptr && checkExpr(table, expr->expr2)) {
+                    return true;
+                }
+                break;
+            }
+            case kExprColumnRef: {
+                if (checkColumn(table, expr->name)) {
+                    return true;
+                }
+                break;
+            }
+            default:
+                std::cout << "# ERROR: Unsupport opertation " << std::endl;
+                return true;
+        }
+
+        return false;
+    }
+
+    bool Parser::checkCreateStmt(const CreateStatement* stmt) {
+        switch (stmt->type) {
             case kCreateTable:
-                if (checkCreateTableStmt(create_stmt)) {
+                if (checkCreateTableStmt(stmt)) {
                     return true;
                 }
                 break;
             case kCreateIndex:
-                if (checkCreateIndexStmt(create_stmt)) {
+                if (checkCreateIndexStmt(stmt)) {
                     return true;
                 }
                 break;
@@ -99,64 +284,25 @@ namespace mydb {
         return false;
     }
 
-    bool Parser::checkDropStmt(const DropStatement* drop_stmt) {
-        switch (drop_stmt->type) {
-            case kDropTable:
-
-            case kDropSchema:
-
-            case kDropIndex:
-
-            default:
-                std::cout << "# ERROR: Not support drop statement "
-                          << DropTypeToString(drop_stmt->type) << std::endl;
-                return true;
-        }
-
-        return false;
-    }
-
-    bool Parser::checkTable(TableRef* table) {
-        if (table->type != kTableName) {
-            std::cout << "# ERROR: Only support ordinary table." << std::endl;
-            return true;
-        }
-
-        if (table->schema == nullptr || table->name == nullptr) {
-            std::cout
-                    << "ERROR: Schema and table name should be specified in the query."
-                    << std::endl;
-            return true;
-        }
-
-        TableName table_name;
-        SetTableName(table_name, table->schema, table->name);
-        if (g_meta_data.getTable(table_name) == nullptr) {
-            return true;
-        }
-
-        return false;
-    }
-
-    bool Parser::checkCreateTableStmt(const CreateStatement* create_stmt) {
-        TableName table_name;
-        SetTableName(table_name, create_stmt->schema, create_stmt->tableName);
-
-        if (g_meta_data.getTable(table_name) != nullptr &&
-            !create_stmt->ifNotExists) {
-            std::cout << "# ERROR: Table " << TableNameToString(table_name)
+    bool Parser::checkCreateTableStmt(const CreateStatement* stmt) {
+        // Check if the table already existed.
+        if (g_meta_data.getTable(stmt->schema, stmt->tableName) != nullptr &&
+            !stmt->ifNotExists) {
+            std::cout << "# ERROR: Table "
+                      << TableNameToString(stmt->schema, stmt->tableName)
                       << " already existed!" << std::endl;
             return true;
         }
 
-        if (create_stmt->columns == nullptr || create_stmt->columns->size() == 0) {
+        // Check each columns
+        if (stmt->columns == nullptr || stmt->columns->size() == 0) {
             std::cout << "# ERROR: Valid column should be spicified in 'Create "
                          "Table' statement."
                       << std::endl;
             return true;
         }
 
-        for (auto col_def : *create_stmt->columns) {
+        for (auto col_def : *stmt->columns) {
             if (col_def == nullptr || col_def->name == nullptr) {
                 std::cout << "# ERROR: Valid column should be spicified in 'Create "
                              "Table' statement."
@@ -174,40 +320,65 @@ namespace mydb {
         return false;
     }
 
-    bool Parser::checkCreateIndexStmt(const CreateStatement* create_stmt) {
-        TableName table_name;
-        SetTableName(table_name, create_stmt->schema, create_stmt->tableName);
-
-        Table* table = g_meta_data.getTable(table_name);
-        if (table == nullptr) {
-            std::cout << "# ERROR: Table " << TableNameToString(table_name)
-                      << " did not exist!" << std::endl;
+    bool Parser::checkCreateIndexStmt(const CreateStatement* stmt) {
+        if (g_meta_data.getIndex(stmt->schema, stmt->tableName, stmt->indexName) !=
+            nullptr &&
+            !stmt->ifNotExists) {
+            std::cout << "# ERROR: Index " << stmt->indexName << "of "
+                      << TableNameToString(stmt->schema, stmt->tableName)
+                      << " already existed!" << std::endl;
             return true;
         }
 
-        for (auto idx : table->indexes) {
-            if (strcmp(idx->name, create_stmt->indexName) == 0 &&
-                !create_stmt->ifNotExists) {
-                std::cout << "# ERROR: Index " << idx->name << " already existed!"
-                          << std::endl;
-                return true;
-            }
-        }
-
-        for (auto idx_col : *create_stmt->indexColumns) {
-            bool find_col = false;
-            for (auto col_def : table->columns) {
-                if (strcmp(idx_col, col_def->name) == 0) {
-                    find_col = true;
-                }
-            }
-            if (!find_col) {
-                std::cout << "# ERROR: Can not find column " << idx_col << " for index "
-                          << create_stmt->indexName << std::endl;
+        // Check if each column of this index existed.
+        Table* table = g_meta_data.getTable(stmt->schema, stmt->tableName);
+        for (auto idx_col : *stmt->indexColumns) {
+            if (checkColumn(table, idx_col)) {
                 return true;
             }
         }
 
         return false;
     }
+
+    bool Parser::checkDropStmt(const DropStatement* stmt) {
+        switch (stmt->type) {
+            case kDropTable: {
+                if (g_meta_data.getTable(stmt->schema, stmt->name) == nullptr &&
+                    !stmt->ifExists) {
+                    std::cout << "# ERROR: Table "
+                              << TableNameToString(stmt->schema, stmt->name)
+                              << " did not exist!" << std::endl;
+                    return true;
+                }
+                break;
+            }
+            case kDropSchema: {
+                if (!g_meta_data.findSchema(stmt->schema) && !stmt->ifExists) {
+                    std::cout << "# ERROR: Schema " << stmt->schema << " did not exist"
+                              << std::endl;
+                    return true;
+                }
+                break;
+            }
+            case kDropIndex: {
+                if (g_meta_data.getIndex(stmt->schema, stmt->name, stmt->indexName) ==
+                    nullptr &&
+                    !stmt->ifExists) {
+                    std::cout << "# ERROR: Index " << stmt->indexName << " of "
+                              << TableNameToString(stmt->schema, stmt->name)
+                              << " did not exist!" << std::endl;
+                    return true;
+                }
+                break;
+            }
+            default:
+                std::cout << "# ERROR: Not support drop statement "
+                          << DropTypeToString(stmt->type) << std::endl;
+                return true;
+        }
+
+        return false;
+    }
+
 }
