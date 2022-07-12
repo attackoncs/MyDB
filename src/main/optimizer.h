@@ -1,3 +1,5 @@
+#pragma once
+
 #include "metadata.h"
 
 #include "sql/statements.h"
@@ -36,11 +38,10 @@ namespace mydb {
         CreatePlan(CreateType t) : Plan(kCreate), type(t) {}
         CreateType type;
         bool ifNotExists;
-        char* filePath;
         char* schema;
         char* tableName;
         char* indexName;
-        std::vector<char*>* indexColumns;
+        std::vector<ColumnDefinition*>* indexColumns;
         std::vector<ColumnDefinition*>* columns;
     };
 
@@ -79,8 +80,7 @@ namespace mydb {
     };
 
     enum ScanType {
-        kSeqScan,
-        kIndexScan
+        kSeqScan,kIndexScan
     };
 
     struct ScanPlan : public Plan {

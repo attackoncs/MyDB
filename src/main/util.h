@@ -1,6 +1,7 @@
 #pragma once
-#include "SQLParser.h"
-#include "SQLParserResult.h"
+
+#include "sql/ColumnType.h"
+#include "sql/Table.h"
 #include "util/sqlhelper.h"
 
 using namespace hsql;
