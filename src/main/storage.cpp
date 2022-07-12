@@ -26,8 +26,6 @@ TableStore::TableStore(std::vector<ColumnDefinition*>* columns)
 
   // Add space for header
   tupleSize_ += sizeof(Tuple*) * 2;
-  tupleSize_ += sizeof(trx_id_t);
-  tupleSize_ += sizeof(bool);
 }
 
 TableStore::~TableStore() {
@@ -46,8 +44,6 @@ bool TableStore::insertTuple(std::vector<Expr*>* values) {
   Tuple* tup = freeList_.popHead();
   dataList_.addHead(tup);
 
-  tup->is_free = false;
-  tup->trx_id = 0;
   int idx = 0;
   for(auto expr:*values){
     setColValues(tup,idx,expr);
@@ -60,10 +56,13 @@ bool TableStore::insertTuple(std::vector<Expr*>* values) {
 
 bool TableStore::deleteTuple(Tuple* tup){
     memset(tup,0,tupleSize_);
-    tup->is_free = true;
     dataList_.delTuple(tup);
     freeList_.addHead(tup);
     return true;
+}
+
+Tuple* TableStore::seqScan(){
+    return dataList_.getHead();
 }
 
 bool TableStore::updateTuple(Tuple* tup, std::vector<UpdateClause*>* updates) {
