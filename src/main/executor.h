@@ -1,3 +1,5 @@
+#pragma once
+
 #include "optimizer.h"
 
 namespace mydb {
@@ -69,7 +71,8 @@ namespace mydb {
 
     class IndexScanOperator : public BaseOperator {
     public:
-        IndexScanOperator(Plan* plan, BaseOperator* next) : BaseOperator(plan, next) {}
+        IndexScanOperator(Plan* plan, BaseOperator* next)
+                : BaseOperator(plan, next) {}
         ~IndexScanOperator() {}
         bool exec() override;
     };
@@ -104,7 +107,8 @@ namespace mydb {
 
     class ProjectionOperator : public BaseOperator {
     public:
-        ProjectionOperator(Plan* plan, BaseOperator* next) : BaseOperator(plan, next) {}
+        ProjectionOperator(Plan* plan, BaseOperator* next)
+                : BaseOperator(plan, next) {}
         ~ProjectionOperator() {}
         bool exec() override;
     };
@@ -112,7 +116,7 @@ namespace mydb {
     class Executor {
     public:
         Executor(Plan* plan) : planTree_(plan) {}
-        ~Executor(){};
+        ~Executor() {}
         void init();
         bool exec();
 

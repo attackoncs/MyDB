@@ -6,7 +6,7 @@
 #include <iostream>
 #include <string>
 
-using namespace bydb;
+using namespace mydb;
 using namespace hsql;
 
 static bool ExecStmt(std::string stmt) {
@@ -42,6 +42,7 @@ int main(int argc, char* argv[]) {
 
     std::string cmd;
     while (true) {
+        std::cout << ">> ";
         std::getline(std::cin, cmd);
         if (cmd == "exit") {
             break;
