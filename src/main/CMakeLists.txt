@@ -1,4 +1,15 @@
-set(MY_DB_SRC main.cpp)
+set(MY_DB_SRC 
+    main.cpp
+    ddl.cpp
+    executor.cpp
+    index.cpp
+    metadata.cpp
+    optimizer.cpp
+    parser.cpp
+    storage.cpp
+    trx.cpp
+    util.cpp
+)
 
 add_executable(my_db ${MY_DB_SRC})
 

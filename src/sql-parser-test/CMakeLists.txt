@@ -1,5 +1,5 @@
 set(SQL_PARSER_TEST_SRC
-        main.cpp
+        test.cpp
         )
 
 add_executable(sql-parser-test
