@@ -16,7 +16,7 @@ namespace mydb {
 
     inline std::string TableNameToString(char* schema, char* name) {
         std::string str =
-                (schema == nullptr) ? name : schema + std::string("/") + name;
+                (schema == nullptr) ? name : schema + std::string(".") + name;
         return str;
     }
 
