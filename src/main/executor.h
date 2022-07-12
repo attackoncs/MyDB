@@ -112,10 +112,13 @@ namespace mydb {
     class Executor {
     public:
         Executor(Plan* plan) : planTree_(plan) {}
-        ~Executor();
-        BaseOperator* generateOperator(Plan* Plan);
+        ~Executor(){};
+        void init();
+        bool exec();
 
     private:
+        BaseOperator* generateOperator(Plan* Plan);
+
         Plan* planTree_;
         BaseOperator* opTree_;
     };
