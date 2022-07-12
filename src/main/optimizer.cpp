@@ -85,6 +85,10 @@ namespace mydb {
 
     Plan* Optimizer::createUpdatePlanTree(const UpdateStatement* stmt) {
         UpdatePlan* plan = new UpdatePlan();
+        plan->type = stmt->type;
+        plan->table = g_meta_data.getTable(stmt->schema, stmt->tableName);
+        plan->values = stmt->values;
+        
         return plan;
     }
 

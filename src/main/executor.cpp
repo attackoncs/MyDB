@@ -179,7 +179,11 @@ namespace mydb {
         return false;
     }
 
-    bool InsertOperator::exec() { return false; }
+    bool InsertOperator::exec() {
+        InsertPlan* plan = static_cast<InsertPlan*>(plan_);
+        TableStore* table_store = plan->table->getTableStore();
+        return table_store->insertTuple(plan->values);
+    }
 
     bool UpdateOperator::exec() { return false; }
 

@@ -58,7 +58,6 @@ namespace mydb {
         InsertPlan() : Plan(kInsert) {}
         InsertType type;
         Table* table;
-        std::vector<ColumnDefinition*>* columns;
         std::vector<Expr*>* values;
     };
 

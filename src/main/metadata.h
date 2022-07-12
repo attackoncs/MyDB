@@ -56,12 +56,13 @@ namespace mydb {
         std::vector<ColumnDefinition*>* columns() { return &columns_; };
         std::vector<Index*>* indexes() { return &indexes_; };
         void addIndex(Index* index) { indexes_.push_back(index); };
-
+        TableStore* getTableStore() { return &tableStore;}
     private:
         char* schema_;
         char* name_;
         std::vector<ColumnDefinition*> columns_;
         std::vector<Index*> indexes_;
+        TableStore tableStore_;
     };
 
     class MetaData {

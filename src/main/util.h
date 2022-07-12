@@ -3,6 +3,7 @@
 #include "sql/ColumnType.h"
 #include "sql/Table.h"
 #include "sql/statements.h"
+#include "storage.h"
 
 #include <string>
 
@@ -28,5 +29,10 @@ namespace mydb {
     const char* StmtTypeToString(StatementType type);
     const char* DataTypeToString(DataType type);
     const char* DropTypeToString(DropType type);
+    const char* ExprTypeToString(ExprType type);
 
+    size_t ColumnTypeSize(ColumnType& type);
+
+    void PrintTuples(std::vector<ColumnDefinition*>& columns,
+                     std::vector<Tuple*>& tuples);
 }
