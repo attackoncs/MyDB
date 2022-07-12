@@ -1,32 +1,44 @@
-#include "sql/statements.h"
-#include "sql/ColumnType.h"
-#include "sql/Table.h"
-
-#include <string>
+#pragma once
+#include "SQLParser.h"
+#include "SQLParserResult.h"
+#include "util/sqlhelper.h"
 
 using namespace hsql;
 
-namespace bydb {
-    inline bool IsDataTypeSupport(DataType type) {
-        return (type == DataType::INT || type == DataType::LONG||
-                type == DataType::CHAR || type == DataType::VARCHAR);
-    }
+namespace mydb {
+    class Parser {
+    public:
+        Parser();
+        ~Parser();
 
-    inline std::string TableNameToString(TableName& table_name) {
-        std::string name =
-                (table_name.schema == nullptr)
-                ? table_name.name
-                : table_name.schema + std::string("/") + table_name.name;
-        return name;
-    }
+        bool parseStatement(std::string query);
 
-    inline void SetTableName(TableName& table_name, char* schema, char* name) {
-        table_name.schema = schema;
-        table_name.name = name;
-    }
+        SQLParserResult* getResult() { return result_; }
 
-    const char* StmtTypeToString(StatementType type);
-    const char* DataTypeToString(DataType type);
-    const char* DropTypeToString(DropType type);
+    private:
+        bool checkStmtsMeta();
+
+        bool checkMeta(const SQLStatement* stmt);
+
+        bool checkSelectStmt(const SelectStatement* select_stmt);
+
+        bool checkInsertStmt(const InsertStatement* insert_stmt);
+
+        bool checkUpdateStmt(const UpdateStatement* update_stmt);
+
+        bool checkDeleteStmt(const DeleteStatement* delete_stmt);
+
+        bool checkCreateStmt(const CreateStatement* create_stmt);
+
+        bool checkDropStmt(const DropStatement* drop_stmt);
+
+        bool checkCreateIndexStmt(const CreateStatement* stmt);
+
+        bool checkCreateTableStmt(const CreateStatement* stmt);
+
+        bool checkTable(TableRef* table);
+
+        SQLParserResult* result_;
+    };
 
 }

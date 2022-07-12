@@ -1,6 +1,6 @@
 #include "util.h"
 
-namespace bydb {
+namespace mydb {
     const char* StmtTypeToString(StatementType type) {
         switch (type) {
             case kStmtError:

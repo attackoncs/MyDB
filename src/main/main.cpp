@@ -1,23 +1,36 @@
-#include "SQLParser.h"
-#include "SQLParserResult.h"
-#include "util/sqlhelper.h"
+#include "parser.h"
 
-#include <cstdlib.h>
+#include <stdlib.h>
 #include <iostream>
 #include <string>
 
-int main()
-{
-    std::cout << "# Welcome to MyDB DB!!!" << std::endl;
+using namespace mydb;
+using namespace hsql;
+
+static bool ExecStmt(std::string stmt) {
+    Parser parser;
+    if (parser.parseStatement(stmt)) {
+        return true;
+    }
+
+
+    return false;
+}
+
+int main(int argc, char* argv[]) {
+    std::cout << "# Welcome to ByteYoung DB!!!" << std::endl;
     std::cout << "# Input your query in one line." << std::endl;
     std::cout << "# Enter 'exit' to quit this program." << std::endl;
+
     std::string cmd;
-    while (true)
-    {
+    while (true) {
         std::getline(std::cin, cmd);
-        if (cmd == "exit")
-        {
+        if (cmd == "exit") {
             break;
+        }
+
+        if (ExecStmt(cmd)) {
+            std::cout << "# ERROR: Failed to execute '" << cmd << "'" << std::endl;
         }
     }
 
