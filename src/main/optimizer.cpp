@@ -80,84 +80,106 @@ namespace mydb {
 
     Plan* Optimizer::createInsertPlanTree(const InsertStatement* stmt) {
         InsertPlan* plan = new InsertPlan();
+        plan->type = stmt->type;
+        plan->table = g_meta_data.getTable(stmt->schema, stmt->tableName);
+        plan->values = stmt->values;
+
         return plan;
     }
 
     Plan* Optimizer::createUpdatePlanTree(const UpdateStatement* stmt) {
         UpdatePlan* plan = new UpdatePlan();
-        plan->type = stmt->type;
-        plan->table = g_meta_data.getTable(stmt->schema, stmt->tableName);
-        plan->values = stmt->values;
-        
         return plan;
     }
 
     Plan* Optimizer::createDeletePlanTree(const DeleteStatement* stmt) {
+        Table* table = g_meta_data.getTable(stmt->schema, stmt->tableName);
+        Plan* plan;
+
+        ScanPlan* scan = new ScanPlan();
+        scan->type = kSeqScan;
+        scan->table = table;
+        plan = scan;
+
+        if (stmt->expr != nullptr) {
+            Plan* filter = createFilterPlan(table->columns(), stmt->expr);
+            filter->next = plan;
+            plan = filter;
+        }
+
+        DeletePlan* del = new DeletePlan();
+        del->table = table;
+        del->next = plan;
+        return del;
+    }
+
+    Plan* Optimizer::createSelectPlanTree(const SelectStatement* stmt) {
         Table* table = g_meta_data.getTable(stmt->fromTable->schema, stmt->fromTable->name);
         std::vector<ColumnDefinition*>* columns = table->columns();
         Plan *plan;
 
-        ScanPlan* scanplan = new ScanPlan();
-        scanplan->type = kSeqScan;
-        scanplan->table = table;
-        plan = scanplan;
+        ScanPlan* scan = new ScanPlan();
+        scan->type = kSeqScan;
+        scan->table = table;
+        plan = scan;
 
         if (stmt->whereClause != nullptr) {
-            FilterPlan* filterplan = new FilterPlan();
-            Expr* where = stmt->whereClause;
-            Expr* col = nullptr;
-            Expr* val = nullptr;
-            if (where->expr->type == kExprColumnRef) {
-                col = where->expr;
-                val = where->expr2;
-            } else {
-                col = where->expr2;
-                val = where->expr;
-            }
-
-            for (size_t i = 0 ; i < columns->size(); i++) {
-                ColumnDefinition* col_def = (*columns)[i];
-                if (strcmp(col->name, col_def->name) == 0) {
-                    filterplan->idx = i;
-                }
-            }
-            filterplan->val = val;
-            filterplan->next = plan;
-            plan = filterplan;
+            Plan* filter = createFilterPlan(columns, stmt->whereClause);
+            filter->next = plan;
+            plan = filter;
         }
 
-        SelectPlan* selectplan = new SelectPlan();
-        selectplan->table = table;
-        selectplan->next = plan;
+        SelectPlan* select = new SelectPlan();
+        select->table = table;
+        select->next = plan;
 
         for (auto expr : *stmt->selectList) {
             if (expr->type == kExprStar) {
                 for (size_t i = 0; i < columns->size(); i++) {
                     ColumnDefinition* col = (*columns)[i];
-                    selectplan->outCols.push_back(col);
-                    selectplan->colIds.push_back(i);
+                    select->outCols.push_back(col);
+                    select->colIds.push_back(i);
                 }
             } else {
                 for (size_t i = 0; i < columns->size(); i++) {
                     ColumnDefinition* col = (*columns)[i];
                     if (strcmp(expr->name, col->name) == 0) {
-                        selectplan->outCols.push_back(col);
-                        selectplan->colIds.push_back(i);
+                        select->outCols.push_back(col);
+                        select->colIds.push_back(i);
                     }
                 }
             }
         }
 
-        return selectplan;
+        return select;
     }
 
-    Plan* Optimizer::createSelectPlanTree(const SelectStatement* stmt) {
-        SelectPlan* plan = new SelectPlan();
-        return plan;
+    Plan* Optimizer::createFilterPlan(std::vector<ColumnDefinition*>* columns, Expr* where) {
+        FilterPlan* filter = new FilterPlan();
+        Expr* col = nullptr;
+        Expr* val = nullptr;
+        if (where->expr->type == kExprColumnRef) {
+            col = where->expr;
+            val = where->expr2;
+        } else {
+            col = where->expr2;
+            val = where->expr;
+        }
+
+        for (size_t i = 0 ; i < columns->size(); i++) {
+            ColumnDefinition* col_def = (*columns)[i];
+            if (strcmp(col->name, col_def->name) == 0) {
+                filter->idx = i;
+            }
+        }
+        filter->val = val;
+
+        return filter;
     }
 
     Plan* Optimizer::createTrxPlanTree(const TransactionStatement* stmt) {
         TrxPlan* plan = new TrxPlan();
+        plan->command = stmt->command;
         return plan;
     }
 
@@ -169,5 +191,4 @@ namespace mydb {
         plan->next = nullptr;
         return plan;
     }
-
 }

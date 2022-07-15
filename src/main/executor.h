@@ -1,5 +1,3 @@
-#pragma once
-
 #include "optimizer.h"
 
 namespace mydb {
@@ -19,10 +17,10 @@ namespace mydb {
     class BaseOperator {
     public:
         BaseOperator(Plan* plan, BaseOperator* next) : plan_(plan), next_(next) {}
-        virtual ~BaseOperator(){
+        virtual ~BaseOperator() {
             delete next_;
         }
-        virtual bool exec(TupleIter** iter= nullptr)=0;
+        virtual bool exec(TupleIter** iter = nullptr) = 0;
 
         Plan* plan_;
         BaseOperator* next_;
@@ -86,12 +84,17 @@ namespace mydb {
 
     class SeqScanOperator : public BaseOperator {
     public:
-        SeqScanOperator(Plan* plan, BaseOperator* next) : BaseOperator(plan, next) {}
-        ~SeqScanOperator() {}
+        SeqScanOperator(Plan* plan, BaseOperator* next) : BaseOperator(plan, next), finish(false), nextTuple_(nullptr) {}
+        ~SeqScanOperator() {
+            for (auto iter : tuples_) {
+                delete iter;
+            }
+        }
         bool exec(TupleIter** iter = nullptr) override;
+
     private:
-    private:
-        Tuple* curTuple_;
+        bool finish;
+        Tuple* nextTuple_;
         std::vector<TupleIter*> tuples_;
     };
 
@@ -100,6 +103,7 @@ namespace mydb {
         FilterOperator(Plan* plan, BaseOperator* next) : BaseOperator(plan, next) {}
         ~FilterOperator() {}
         bool exec(TupleIter** iter = nullptr) override;
+
     private:
         bool execEqualExpr(TupleIter* iter);
     };

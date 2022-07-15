@@ -1,5 +1,3 @@
-#pragma once
-
 #include "metadata.h"
 
 #include "sql/statements.h"
@@ -64,13 +62,13 @@ namespace mydb {
     struct UpdatePlan : public Plan {
         UpdatePlan() : Plan(kUpdate) {}
         Table* table;
-        std::vector<UpdateClause*>* updates;
+        std::vector<Expr*> values;
+        std::vector<size_t> idxs;
     };
 
     struct DeletePlan : public Plan {
         DeletePlan() : Plan(kDelete) {}
         Table* table;
-        Expr* whereClause;
     };
 
     struct SelectPlan : public Plan {
@@ -80,9 +78,7 @@ namespace mydb {
         std::vector<size_t> colIds;
     };
 
-    enum ScanType {
-        kSeqScan,kIndexScan
-    };
+    enum ScanType { kSeqScan, kIndexScan };
 
     struct ScanPlan : public Plan {
         ScanPlan() : Plan(kScan) {}
@@ -138,6 +134,8 @@ namespace mydb {
         Plan* createDeletePlanTree(const DeleteStatement* stmt);
 
         Plan* createSelectPlanTree(const SelectStatement* stmt);
+
+        Plan* createFilterPlan(std::vector<ColumnDefinition*>* columns, Expr* where);
 
         Plan* createTrxPlanTree(const TransactionStatement* stmt);
 

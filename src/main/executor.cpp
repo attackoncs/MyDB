@@ -1,6 +1,7 @@
 #include "executor.h"
 #include "metadata.h"
 #include "optimizer.h"
+#include "trx.h"
 #include "util.h"
 
 #include <iostream>
@@ -125,10 +126,12 @@ namespace mydb {
         if (plan->type == kDropSchema) {
             if (g_meta_data.dropSchema(plan->schema)) {
                 if (plan->ifExists) {
-                    std::cout << "# INFO: Schema " << plan->schema << " did not exist." << std::endl;
+                    std::cout << "# INFO: Schema " << plan->schema << " did not exist."
+                              << std::endl;
                     return false;
                 } else {
-                    std::cout << "# ERROR: Schema " << plan->schema << " did not exist." << std::endl;
+                    std::cout << "# ERROR: Schema " << plan->schema << " did not exist."
+                              << std::endl;
                     return true;
                 }
             }
@@ -138,10 +141,14 @@ namespace mydb {
         } else if (plan->type == kDropTable) {
             if (g_meta_data.dropTable(plan->schema, plan->name)) {
                 if (plan->ifExists) {
-                    std::cout << "# INFO: Table " << TableNameToString(plan->schema, plan->name) << " did not exist." << std::endl;
+                    std::cout << "# INFO: Table "
+                              << TableNameToString(plan->schema, plan->name)
+                              << " did not exist." << std::endl;
                     return false;
                 } else {
-                    std::cout << "# ERROR: Table " << TableNameToString(plan->schema, plan->name) << " did not exist." << std::endl;
+                    std::cout << "# ERROR: Table "
+                              << TableNameToString(plan->schema, plan->name)
+                              << " did not exist." << std::endl;
                     return true;
                 }
             }
@@ -151,10 +158,12 @@ namespace mydb {
         } else if (plan->type == kDropIndex) {
             if (g_meta_data.dropIndex(plan->schema, plan->name, plan->indexName)) {
                 if (plan->ifExists) {
-                    std::cout << "# INFO: Index " << plan->indexName << " did not exist." << std::endl;
+                    std::cout << "# INFO: Index " << plan->indexName << " did not exist."
+                              << std::endl;
                     return false;
                 } else {
-                    std::cout << "# ERROR: Index " << plan->indexName << " did not exist." << std::endl;
+                    std::cout << "# ERROR: Index " << plan->indexName << " did not exist."
+                              << std::endl;
                     return true;
                 }
             }
@@ -172,18 +181,82 @@ namespace mydb {
     bool InsertOperator::exec(TupleIter** iter) {
         InsertPlan* plan = static_cast<InsertPlan*>(plan_);
         TableStore* table_store = plan->table->getTableStore();
-        if(table_store->insertTuple(plan->values)){
+        if (table_store->insertTuple(plan->values)) {
             return true;
         }
         std::cout << "# INFO: Insert tuple successfully." << std::endl;
         return false;
     }
 
-    bool UpdateOperator::exec(TupleIter** iter) { return false; }
+    bool UpdateOperator::exec(TupleIter** iter) {
+        UpdatePlan* update = static_cast<UpdatePlan *>(plan_);
+        Table *table = update->table;
+        TableStore *table_store = table->getTableStore();
+        int upd_cnt = 0;
 
-    bool DeleteOperator::exec(TupleIter** iter) { return false; }
+        while (true) {
+            TupleIter* tup_iter = nullptr;
+            if (next_->exec(&tup_iter)) {
+                return true;
+            }
 
-    bool TrxOperator::exec(TupleIter** iter) { return false; }
+            if (tup_iter == nullptr) {
+                break;
+            } else {
+                table_store->updateTuple(tup_iter->tup, update->idxs, update->values);
+                upd_cnt++;
+            }
+        }
+
+
+        std::cout << "# INFO: Update " << upd_cnt << " tuple successfully." << std::endl;
+        return false;
+    }
+
+    bool DeleteOperator::exec(TupleIter** iter) {
+        Table *table = static_cast<DeletePlan *>(plan_)->table;
+        TableStore *table_store = table->getTableStore();
+        int del_cnt = 0;
+
+        while (true) {
+            TupleIter* tup_iter = nullptr;
+            if (next_->exec(&tup_iter)) {
+                return true;
+            }
+
+            if (tup_iter == nullptr) {
+                break;
+            } else {
+                table_store->deleteTuple(tup_iter->tup);
+                del_cnt++;
+            }
+        }
+
+        std::cout << "# INFO: Delete " << del_cnt << " tuple successfully." << std::endl;
+        return false;
+    }
+
+    bool TrxOperator::exec(TupleIter** iter) {
+        TrxPlan* plan = static_cast<TrxPlan*>(plan_);
+        switch (plan->command) {
+            case kBeginTransaction:
+                g_transaction.begin();
+                std::cout << "# INFO: Start transaction" << std::endl;
+                break;
+            case kCommitTransaction:
+                g_transaction.commit();
+                std::cout << "# INFO: Commit transaction" << std::endl;
+                break;
+            case kRollbackTransaction:
+                g_transaction.rollback();
+                std::cout << "# INFO: Rollback transaction" << std::endl;
+                break;
+            default:
+                break;
+        }
+
+        return false;
+    }
 
     bool ShowOperator::exec(TupleIter** iter) {
         ShowPlan* show_plan = static_cast<ShowPlan*>(plan_);
@@ -235,7 +308,7 @@ namespace mydb {
                 return true;
             }
 
-            if (tup_iter== nullptr) {
+            if (tup_iter == nullptr) {
                 break;
             } else {
                 tuples.push_back(tup_iter->values);
@@ -243,25 +316,38 @@ namespace mydb {
         }
 
         PrintTuples(plan->outCols, plan->colIds, tuples);
-
         return false;
     }
-
 
     bool SeqScanOperator::exec(TupleIter** iter) {
         ScanPlan* plan = static_cast<ScanPlan*>(plan_);
         TableStore* table_store = plan->table->getTableStore();
-        curTuple_ = table_store->seqScan(curTuple_);
-        if (curTuple_ == nullptr) {
-            *iter= nullptr;
+        Tuple* tup = nullptr;
+
+        if (finish) {
             return false;
-        } else {
-//            table_store->parseTuple(curTuple_, values);
-            TupleIter* tup_iter = new TupleIter(curTuple_);
-            table_store->parseTuple(curTuple_, tup_iter->values);
-            *iter = tup_iter;
         }
 
+        if (nextTuple_ == nullptr) {
+            tup = table_store->seqScan(nullptr);
+        } else {
+            tup = nextTuple_;
+        }
+
+        if (tup == nullptr) {
+            *iter = nullptr;
+            return false;
+        }
+
+        TupleIter* tup_iter = new TupleIter(tup);
+        table_store->parseTuple(tup, tup_iter->values);
+        tuples_.push_back(tup_iter);
+        *iter = tup_iter;
+
+        nextTuple_ = table_store->seqScan(tup);
+        if (nextTuple_ == nullptr) {
+            finish = true;
+        }
         return false;
     }
 
@@ -287,11 +373,11 @@ namespace mydb {
     }
 
     bool FilterOperator::execEqualExpr(TupleIter* iter) {
-        FilterPlan *filter = static_cast<FilterPlan *>(plan_);
-        Expr *val = filter->val;
+        FilterPlan* filter = static_cast<FilterPlan*>(plan_);
+        Expr* val = filter->val;
         size_t col_id = filter->idx;
 
-        Expr *col_val = iter->values[col_id];
+        Expr* col_val = iter->values[col_id];
         if (col_val->type != val->type) {
             return false;
         }
@@ -306,4 +392,5 @@ namespace mydb {
 
         return false;
     }
+
 }
