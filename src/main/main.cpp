@@ -44,18 +44,18 @@ int main(int argc, char* argv[]) {
     while (true) {
         std::cout << ">> ";
         std::getline(std::cin, cmd);
-        if(cmd.length() == 0) {
+        if (cmd.length() == 0) {
             continue;
         }
-        
-        if (cmd == "exit"||cmd=="q") {
+
+        if (cmd == "exit" || cmd == "q") {
             break;
         }
 
         if (ExecStmt(cmd)) {
-            std::cout << "# ERROR: Failed to execute '" << cmd << "'" << std::endl;
+            std::cout << "[BYDB-Error]  Failed to execute '" << cmd << "'" << std::endl;
         }
-        std::cout<<std::endl;
+        std::cout << std::endl;
     }
 
     std::cout << "# Farewell~~~ " << std::endl;

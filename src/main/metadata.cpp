@@ -9,7 +9,7 @@ namespace mydb {
 
     MetaData g_meta_data;
 
-    Table::Table(char* schema, char* name,std::vector<ColumnDefinition*>* columns){
+    Table::Table(char* schema, char* name, std::vector<ColumnDefinition*>* columns) {
         schema_ = strdup(schema);
         name_ = strdup(name);
         for (auto col_old : *columns) {
@@ -76,7 +76,7 @@ namespace mydb {
     bool MetaData::dropIndex(char* schema, char* name, char* indexName) {
         Table* table = getTable(schema, name);
         if (table == nullptr) {
-            std::cout << "# ERROR: Table " << TableNameToString(schema, name)
+            std::cout << "[BYDB-Error]  Table " << TableNameToString(schema, name)
                       << " did not exist!" << std::endl;
             return true;
         }
@@ -113,7 +113,8 @@ namespace mydb {
         while (iter != table_map_.end()) {
             Table* table = iter->second;
             if (strcmp(table->schema(), schema) == 0) {
-                std::cout << "# INFO: Drop table " << table->name() << " in schema " << schema << std::endl;
+                std::cout << "[BYDB-Info]  Drop table " << table->name() << " in schema "
+                          << schema << std::endl;
                 iter = table_map_.erase(iter);
                 delete table;
                 ret = false;
@@ -167,7 +168,7 @@ namespace mydb {
     Index* MetaData::getIndex(char* schema, char* name, char* index_name) {
         Table* table = getTable(schema, name);
         if (table == nullptr) {
-            std::cout << "# ERROR: Table " << TableNameToString(schema, name)
+            std::cout << "[BYDB-Error]  Table " << TableNameToString(schema, name)
                       << " did not exist!" << std::endl;
             return nullptr;
         }
