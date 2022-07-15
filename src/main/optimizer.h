@@ -76,6 +76,8 @@ namespace mydb {
     struct SelectPlan : public Plan {
         SelectPlan() : Plan(kSelect) {}
         Table* table;
+        std::vector<ColumnDefinition*> outCols;
+        std::vector<size_t> colIds;
     };
 
     enum ScanType {
@@ -86,21 +88,12 @@ namespace mydb {
         ScanPlan() : Plan(kScan) {}
         ScanType type;
         Table* table;
-        std::vector<Expr*>* scanList;
-        Index* index;
-        Expr* indexCond;
     };
 
     struct FilterPlan : public Plan {
-        FilterPlan() : Plan(kFilter) {}
-        Expr* whereClause;
-    };
-
-    struct ProjectionPlan : public Plan {
-        ProjectionPlan() : Plan(kProjection) {}
-        Table* table;
-        std::vector<Expr*>* inputList;
-        std::vector<Expr*>* outputList;
+        FilterPlan() : Plan(kFilter), idx(0), val(nullptr) {}
+        size_t idx;
+        Expr* val;
     };
 
     struct SortPlan : public Plan {
@@ -149,16 +142,6 @@ namespace mydb {
         Plan* createTrxPlanTree(const TransactionStatement* stmt);
 
         Plan* createShowPlanTree(const ShowStatement* stmt);
-
-        Plan* createScanPlan();
-
-        Plan* createFileterPlan();
-
-        Plan* createSortPlan();
-
-        Plan* createLimitPlan();
-
-        Plan* createProjdctionPlan();
     };
 
 }

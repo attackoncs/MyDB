@@ -45,22 +45,11 @@ namespace mydb {
                 ScanPlan* scan_plan = static_cast<ScanPlan*>(plan);
                 if (scan_plan->type == kSeqScan) {
                     op = new SeqScanOperator(plan, next);
-                } else if (scan_plan->type == kIndexScan) {
-                    op = new IndexScanOperator(plan, next);
                 }
                 break;
             }
-            case kProjection:
-                op = new ProjectionOperator(plan, next);
-                break;
             case kFilter:
                 op = new FilterOperator(plan, next);
-                break;
-            case kSort:
-                op = new SortOperator(plan, next);
-                break;
-            case kLimit:
-                op = new LimitOperator(plan, next);
                 break;
             case kTrx:
                 op = new TrxOperator(plan, next);
@@ -69,13 +58,14 @@ namespace mydb {
                 op = new ShowOperator(plan, next);
                 break;
             default:
+                std::cout << "# ERROR: Not support plan node " << PlanTypeToString(plan->planType);
                 break;
         }
 
         return op;
     }
 
-    bool CreateOperator::exec() {
+    bool CreateOperator::exec(TupleIter** iter) {
         CreatePlan* plan = static_cast<CreatePlan*>(plan_);
 
         if (plan->type == kCreateTable) {
@@ -130,7 +120,7 @@ namespace mydb {
         return false;
     }
 
-    bool DropOperator::exec() {
+    bool DropOperator::exec(TupleIter** iter) {
         DropPlan* plan = static_cast<DropPlan*>(plan_);
         if (plan->type == kDropSchema) {
             if (g_meta_data.dropSchema(plan->schema)) {
@@ -179,19 +169,23 @@ namespace mydb {
         return false;
     }
 
-    bool InsertOperator::exec() {
+    bool InsertOperator::exec(TupleIter** iter) {
         InsertPlan* plan = static_cast<InsertPlan*>(plan_);
         TableStore* table_store = plan->table->getTableStore();
-        return table_store->insertTuple(plan->values);
+        if(table_store->insertTuple(plan->values)){
+            return true;
+        }
+        std::cout << "# INFO: Insert tuple successfully." << std::endl;
+        return false;
     }
 
-    bool UpdateOperator::exec() { return false; }
+    bool UpdateOperator::exec(TupleIter** iter) { return false; }
 
-    bool DeleteOperator::exec() { return false; }
+    bool DeleteOperator::exec(TupleIter** iter) { return false; }
 
-    bool TrxOperator::exec() { return false; }
+    bool TrxOperator::exec(TupleIter** iter) { return false; }
 
-    bool ShowOperator::exec() {
+    bool ShowOperator::exec(TupleIter** iter) {
         ShowPlan* show_plan = static_cast<ShowPlan*>(plan_);
         if (show_plan->type == kShowTables) {
             std::vector<Table*> tables;
@@ -232,18 +226,84 @@ namespace mydb {
         return false;
     }
 
-    bool SelectOperator::exec() { return false; }
+    bool SelectOperator::exec(TupleIter** iter) {
+        SelectPlan* plan = static_cast<SelectPlan*>(plan_);
+        std::vector<std::vector<Expr*>> tuples;
+        while (true) {
+            TupleIter* tup_iter = nullptr;
+            if (next_->exec(&tup_iter)) {
+                return true;
+            }
 
-    bool IndexScanOperator::exec() { return false; }
+            if (tup_iter== nullptr) {
+                break;
+            } else {
+                tuples.push_back(tup_iter->values);
+            }
+        }
 
-    bool SeqScanOperator::exec() { return false; }
+        PrintTuples(plan->outCols, plan->colIds, tuples);
 
-    bool FilterOperator::exec() { return false; }
+        return false;
+    }
 
-    bool SortOperator::exec() { return false; }
 
-    bool LimitOperator::exec() { return false; }
+    bool SeqScanOperator::exec(TupleIter** iter) {
+        ScanPlan* plan = static_cast<ScanPlan*>(plan_);
+        TableStore* table_store = plan->table->getTableStore();
+        curTuple_ = table_store->seqScan(curTuple_);
+        if (curTuple_ == nullptr) {
+            *iter= nullptr;
+            return false;
+        } else {
+//            table_store->parseTuple(curTuple_, values);
+            TupleIter* tup_iter = new TupleIter(curTuple_);
+            table_store->parseTuple(curTuple_, tup_iter->values);
+            *iter = tup_iter;
+        }
 
-    bool ProjectionOperator::exec() { return false; }
+        return false;
+    }
 
+    bool FilterOperator::exec(TupleIter** iter) {
+        *iter = nullptr;
+        while (true) {
+            TupleIter* tup_iter = nullptr;
+            if (next_->exec(&tup_iter)) {
+                return true;
+            }
+
+            if (tup_iter == nullptr) {
+                break;
+            }
+
+            if (execEqualExpr(tup_iter)) {
+                *iter = tup_iter;
+                break;
+            }
+        }
+
+        return false;
+    }
+
+    bool FilterOperator::execEqualExpr(TupleIter* iter) {
+        FilterPlan *filter = static_cast<FilterPlan *>(plan_);
+        Expr *val = filter->val;
+        size_t col_id = filter->idx;
+
+        Expr *col_val = iter->values[col_id];
+        if (col_val->type != val->type) {
+            return false;
+        }
+
+        if (col_val->type == kExprLiteralInt) {
+            return (col_val->ival == val->ival);
+        }
+
+        if (col_val->type == kExprLiteralString) {
+            return (strcmp(col_val->name, val->name) == 0);
+        }
+
+        return false;
+    }
 }

@@ -266,6 +266,7 @@ namespace mydb {
             case kExprLiteralFloat:
             case kExprLiteralString:
             case kExprLiteralInt:
+            case kExprStar:
                 return false;
             case kExprSelect:
                 return checkExpr(table, expr->expr);
@@ -285,7 +286,7 @@ namespace mydb {
                 break;
             }
             default:
-                std::cout << "# ERROR: Unsupport opertation " << std::endl;
+                std::cout << "# ERROR: Unsupport opertation " << ExprTypeToString(expr->type) << std::endl;
                 return true;
         }
 

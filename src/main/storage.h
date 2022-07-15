@@ -67,6 +67,10 @@ public:
     return tup;
   }
 
+  Tuple* getNext(Tuple* tup){
+      return (tup->next==tail_)?nullptr:tup->next;
+  }
+
   bool isEmpty() {
     return (head_->next == tail_);
   }
@@ -85,7 +89,8 @@ class TableStore {
   bool deleteTuple(Tuple* tup);
   bool updateTuple(Tuple* tup,std::vector<UpdateClause*>* updates);
 
-  Tuple* seqScan();
+  Tuple* seqScan(Tuple* tup);
+  void parseTuple(Tuple* tup,std::vector<Expr*>& values);
 
  private:
   bool newTupleGroup();

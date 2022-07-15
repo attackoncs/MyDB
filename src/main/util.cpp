@@ -1,4 +1,5 @@
 #include "util.h"
+#include "optimizer.h"
 
 #include <cstdint>
 #include <cstring>
@@ -133,6 +134,39 @@ const char* ExprTypeToString(ExprType type) {
   }
 }
 
+const char* PlanTypeToString(PlanType type) {
+    switch (type) {
+        case kCreate:
+            return "Create";
+        case kDrop:
+            return "Drop";
+        case kInsert:
+            return "Insert";
+        case kUpdate:
+            return "Update";
+        case kDelete:
+            return "Delete";
+        case kSelect:
+            return "Select";
+        case kScan:
+            return "Scan";
+        case kProjection:
+            return "Projection";
+        case kFilter:
+            return "Filter";
+        case kSort:
+            return "Sort";
+        case kLimit:
+            return "Limit";
+        case kTrx:
+            return "Trx";
+        case kShow:
+            return "Show";
+        default:
+            return "UNKNOWN";
+    }
+}
+
 size_t ColumnTypeSize(ColumnType& type) {
   switch (type.data_type) {
     case DataType::INT:
@@ -157,6 +191,7 @@ add one more byte for the symbol
 #define MAX_INT64_LEN 20
 
 void PrintTuples(std::vector<ColumnDefinition*>& columns,
+                 std::vector<size_t>& colIds,
                  std::vector<std::vector<Expr*>>& tuples) {
   /* Calculate offset and length for each column */
   size_t total_len = 0;
@@ -186,8 +221,8 @@ void PrintTuples(std::vector<ColumnDefinition*>& columns,
 
   /* Print each tuple */
   for (auto tup : tuples) {
-    int i = 0;
-    for (auto expr : tup) {
+    for (size_t i = 0;i<columns.size();i++) {
+        Expr *expr = tup[colIds[i]];
       std::cout.width(col_lens[i]);
       i++;
       switch (expr->type) {
@@ -206,6 +241,9 @@ void PrintTuples(std::vector<ColumnDefinition*>& columns,
     }
     std::cout << std::endl;
   }
+  /* Print separators */
+    std::cout << std::string(total_len, '-') << std::endl;
+    std::cout << tuples.size() << " row" << std::endl;
 }
 
 } 

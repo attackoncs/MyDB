@@ -4,6 +4,7 @@
 #include "sql/Table.h"
 #include "sql/statements.h"
 #include "storage.h"
+#include "optimizer.h"
 
 #include <string>
 
@@ -30,9 +31,10 @@ namespace mydb {
     const char* DataTypeToString(DataType type);
     const char* DropTypeToString(DropType type);
     const char* ExprTypeToString(ExprType type);
-
+    const char* PlanTypeToString(PlanType type);
     size_t ColumnTypeSize(ColumnType& type);
 
     void PrintTuples(std::vector<ColumnDefinition*>& columns,
-                 std::vector<std::vector<Expr*>>& tuples);
+                     std::vector<size_t>& colIds,
+                     std::vector<std::vector<Expr*>>& tuples);
 }
