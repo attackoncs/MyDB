@@ -148,9 +148,9 @@ namespace mydb {
 
     Table* MetaData::getTable(char* schema, char* name) {
         if (schema == nullptr || name == nullptr) {
-            std::cout
-                    << "ERROR: Schema and table name should be specified in the query."
-                    << std::endl;
+            std::cout << "[BYDB-Error]: Schema and table name should be specified in "
+                         "the query, like 'db.t'."
+                      << std::endl;
             return nullptr;
         }
 

@@ -58,8 +58,9 @@ namespace mydb {
             case kStmtShow:
                 return false;
             default:
-                std::cout << "[BYDB-Error]  Statement type " << StmtTypeToString(stmt->type())
-                          << " is not supported now." << std::endl;
+                std::cout << "[BYDB-Error]  Statement type "
+                          << StmtTypeToString(stmt->type()) << " is not supported now."
+                          << std::endl;
         }
 
         return true;
@@ -286,14 +287,16 @@ namespace mydb {
                 break;
             }
             default:
-                std::cout << "[BYDB-Error]  Unsupport opertation " << ExprTypeToString(expr->type) << std::endl;
+                std::cout << "[BYDB-Error]  Unsupport opertation "
+                          << ExprTypeToString(expr->type) << std::endl;
                 return true;
         }
 
         return false;
     }
 
-    bool Parser::checkValues(std::vector<ColumnDefinition*>* columns, std::vector<Expr*>* values) {
+    bool Parser::checkValues(std::vector<ColumnDefinition*>* columns,
+                             std::vector<Expr*>* values) {
         for (size_t i = 0; i < columns->size(); i++) {
             auto col_def = (*columns)[i];
             auto expr = (*values)[i];
@@ -302,24 +305,30 @@ namespace mydb {
                 case DataType::INT:
                 case DataType::LONG:
                     if (expr->type != kExprLiteralInt) {
-                        std::cout << "[BYDB-Error]  Invalid insert value type " << ExprTypeToString(expr->type)
-                                  << " for column " << col_def->name << std::endl;
+                        std::cout << "[BYDB-Error]  Invalid insert value type "
+                                  << ExprTypeToString(expr->type) << " for column "
+                                  << col_def->name << std::endl;
                         return true;
                     }
-                    if (col_def->type.data_type == DataType::INT && expr->ival > INT32_MAX) {
-                        std::cout << "[BYDB-Error]  The value " << expr->ival << " exceed the limitation of INT32_MAX" << std::endl;
+                    if (col_def->type.data_type == DataType::INT &&
+                        expr->ival > INT32_MAX) {
+                        std::cout << "[BYDB-Error]  The value " << expr->ival
+                                  << " exceed the limitation of INT32_MAX" << std::endl;
                         return true;
                     }
                     break;
                 case DataType::CHAR:
                 case DataType::VARCHAR:
                     if (expr->type != kExprLiteralString) {
-                        std::cout << "[BYDB-Error]  Invalid insert value type " << ExprTypeToString(expr->type)
-                                  << " for column " << col_def->name << std::endl;
+                        std::cout << "[BYDB-Error]  Invalid insert value type "
+                                  << ExprTypeToString(expr->type) << " for column "
+                                  << col_def->name << std::endl;
                         return true;
                     }
                     if (strlen(expr->name) > static_cast<size_t>(col_def->type.length)) {
-                        std::cout << "[BYDB-Error]  The value '" << expr->name << "' is too long for column " << col_def->name << std::endl;
+                        std::cout << "[BYDB-Error]  The value '" << expr->name
+                                  << "' is too long for column " << col_def->name
+                                  << std::endl;
                         return true;
                     }
                     break;
@@ -348,6 +357,13 @@ namespace mydb {
     }
 
     bool Parser::checkCreateTableStmt(const CreateStatement* stmt) {
+        if (stmt->schema == nullptr || stmt->tableName == nullptr) {
+            std::cout << "[BYDB-Error]: Schema and table name should be specified in "
+                         "the query, like 'db.t'."
+                      << std::endl;
+            return true;
+        }
+
         // Check if the table already existed.
         if (g_meta_data.getTable(stmt->schema, stmt->tableName) != nullptr &&
             !stmt->ifNotExists) {
